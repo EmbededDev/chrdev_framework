@@ -9,7 +9,7 @@ Description		:		LINUX DEVICE DRIVER PROJECT
 
 #include"chrdev_framework.h"
 
-#define CHRDEV_FRAMEWORK_N_MINORS 1   // how much sub devices
+#define CHRDEV_FRAMEWORK_N_MINORS 2   // how much sub devices
 #define CHRDEV_FRAMEWORK_FIRST_MINOR 0  // first sub device index
 #define CHRDEV_FRAMEWORK_BUFF_SIZE 1024
 
@@ -27,10 +27,12 @@ typedef struct privatedata {
 	char buff[CHRDEV_FRAMEWORK_BUFF_SIZE];
 	int pointer;
 	struct cdev cdev;   // cdev instance
+	struct device* chrdev_framework_device;
 
 } chrdev_framework_private;
 
 chrdev_framework_private devices[CHRDEV_FRAMEWORK_N_MINORS];	// devices array
+struct class* chrdev_framework_class;
 
 /* get called when device node "open" by user thread */
 static int chrdev_framework_open(struct inode *inode,struct file *filp)
@@ -219,13 +221,21 @@ static int __init chrdev_framework_init(void)
 	}
 	chrdev_framework_major = MAJOR(chrdev_framework_device_num);
 
+	chrdev_framework_class = class_create(THIS_MODULE, DRIVER_NAME);
 	// 主设备号与子设备号组合成具体设备 cdev 到设备号， 这里到偏移量应于 alloc_cdev_region 的参数一致
 	for(i=0;i<CHRDEV_FRAMEWORK_N_MINORS;i++) {
 		chrdev_framework_device_num= MKDEV(chrdev_framework_major ,CHRDEV_FRAMEWORK_FIRST_MINOR+i);
 		cdev_init(&devices[i].cdev , &chrdev_framework_fops);
 		cdev_add(&devices[i].cdev,chrdev_framework_device_num,1);  // 关联 cdev 到 分配到 设备号， 真正注册到内核
-
 		devices[i].nMinor = CHRDEV_FRAMEWORK_FIRST_MINOR+i;
+
+		devices[i].chrdev_framework_device =
+				device_create(chrdev_framework_class, NULL, chrdev_framework_device_num, NULL, DRIVER_NAME"%d", CHRDEV_FRAMEWORK_FIRST_MINOR+i);
+		if(!devices[i].chrdev_framework_device) {
+			PERR("faild create device "DRIVER_NAME"%d", CHRDEV_FRAMEWORK_FIRST_MINOR+i);
+			class_destroy(chrdev_framework_class);
+			return -1;
+		}
 	}
 
 	PINFO("INIT\n");
@@ -247,10 +257,11 @@ static void __exit chrdev_framework_exit(void)
 	for(i=0;i<CHRDEV_FRAMEWORK_N_MINORS;i++) {
 		chrdev_framework_device_num= MKDEV(chrdev_framework_major ,CHRDEV_FRAMEWORK_FIRST_MINOR+i);
 
+		device_destroy(chrdev_framework_class, chrdev_framework_device_num);
 		cdev_del(&devices[i].cdev);
 
 	}
-
+	class_destroy(chrdev_framework_class);
 	unregister_chrdev_region(chrdev_framework_device_num ,CHRDEV_FRAMEWORK_N_MINORS);	
 
 }
