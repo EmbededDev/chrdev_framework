@@ -4,7 +4,7 @@
     <Toolchain>Linux GCC</Toolchain>
     <Architecture>x86_64</Architecture>
     <hostMachineKernel>true</hostMachineKernel>
-    <Kernel-Version>/usr/src/linux-headers-3.16.0-30-generic</Kernel-Version>
+    <Kernel-Version>/usr/src/linux-headers-3.13.0-32-generic</Kernel-Version>
     <Licence>GPL</Licence>
     <Author-name>cjc</Author-name>
     <location>/home/ysh/workspace</location>
